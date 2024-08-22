@@ -2,10 +2,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import time
+from Screenshot import Screenshot  # Ensure you have the Screenshot library installed
 
 def setup_driver():
     chrome_options = Options()
@@ -13,53 +14,49 @@ def setup_driver():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     return driver
 
-def handle_sign_in_popup(driver):
-    try:
-        WebDriverWait(driver, 10).until(
-            EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//iframe[@name="signin_frame"]'))
-        )
-        stay_signed_out_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="stay_signed_out_button_xpath"]'))
-        )
-        stay_signed_out_button.click()
-        driver.switch_to.default_content()
-        print("Handled sign-in pop-up.")
-        
-    except Exception as e:
-        print(f"Failed to handle the sign-in popup: {e}")
+def capture_screenshot(driver, image_path):
+    ob = Screenshot.Screenshot()
+    img_url = ob.full_screenshot(driver, save_path=image_path, image_name='screenshot.png', is_load_at_runtime=True, load_wait_time=3)
+    return img_url
 
-def upload_image_and_find_similar(driver, image_path):
+def paste_image(driver, image_path):
     try:
+        # Navigate to Google Lens or similar service
         driver.get('https://lens.google.com')
 
-        handle_sign_in_popup(driver)
-
-        upload_button = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[3]/form/div[1]/div[1]/div[3]/c-wiz/div[2]/div/div[3]/div[2]/div/div[2]/span'))
-        )
-        upload_button.click()
-
-        time.sleep(2)
-
-        file_input = WebDriverWait(driver, 10).until(
+        # Wait for the upload area to be clickable
+        upload_area = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//input[@type="file"]'))
         )
-        
-        # Debugging: Verify the file input element
-        print("File input found. Uploading image...")
-        print(f"File input element details: {file_input.get_attribute('outerHTML')}")
 
-        # Upload the image
-        file_input.send_keys(image_path)
+        # Capture the screenshot
+        capture_screenshot(driver, image_path)
 
+        # Simulate pasting the screenshot into the upload area
+        # Since pasting is complex and not directly supported, you might need to rely on the file upload approach.
+
+        # Use ActionChains to move to the upload area and then paste (if supported)
+        actions = ActionChains(driver)
+        actions.move_to_element(upload_area).click().perform()
+
+        # Set the file path into the file input element
+        file_input = driver.find_element(By.XPATH, '//input[@type="file"]')
+        file_input.send_keys(image_path + 'screenshot.png')
+
+        # Wait for the results to load
         WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//div[contains(@class, "results-container")]'))
         )
 
+        # Extract similar image links
         links = []
-        similar_images = driver.find_elements(By.XPATH, '//a[contains(@href, "imgres")]')
+        similar_images = WebDriverWait(driver, 20).until(
+            EC.presence_of_all_elements_located((By.XPATH, '//a[contains(@href, "imgres")]'))
+        )
         for img in similar_images[:10]:
-            links.append(img.get_attribute('href'))
+            link = img.get_attribute('href')
+            if link:
+                links.append(link)
 
         return links
 
@@ -70,8 +67,8 @@ def upload_image_and_find_similar(driver, image_path):
 def main():
     driver = setup_driver()
     try:
-        image_path = 'D:\\Prompt-Design\\myimage.png'  # Use double backslashes or forward slashes
-        similar_image_links = upload_image_and_find_similar(driver, image_path)
+        image_path = 'D:/Prompt-Design/'  # Path where the screenshot will be saved
+        similar_image_links = paste_image(driver, image_path)
         if similar_image_links:
             print("Top 10 similar image links:")
             for link in similar_image_links:
