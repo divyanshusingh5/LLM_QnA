@@ -14,14 +14,14 @@ def setup_driver():
 
 def handle_sign_in_popup(driver):
     try:
-        # Switch to the iframe that contains the pop-up
+        # Switch to the iframe that contains the pop-up (if necessary)
         WebDriverWait(driver, 10).until(
-            EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//iframe[@name="signin_frame"]'))
+            EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//iframe[@name="signin_frame"]'))  # Replace with actual iframe name or ID if required
         )
 
         # Click "Stay signed out" or dismiss the popup
         stay_signed_out_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="stay_signed_out_button_xpath"]'))
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="stay_signed_out_button_xpath"]'))  # Replace with actual button XPath
         )
         stay_signed_out_button.click()
 
@@ -40,20 +40,17 @@ def upload_image_and_find_similar(driver, image_path):
         # Handle the sign-in popup if it appears
         handle_sign_in_popup(driver)
 
-        # If there's another iframe for uploading, switch to it
-        switch_to_iframe(driver, 'iframe_id_or_name')  # Replace 'iframe_id_or_name' with the actual iframe ID or name
-
-        # Wait for the search button and click it
-        search_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="lensSearchButton"]'))
+        # Use the provided full XPath to upload the image
+        upload_button = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '/html/body/div[1]/div[3]/form/div[1]/div[1]/div[3]/c-wiz/div[2]/div/div[3]/div[2]/div/div[2]/span'))
         )
-        search_button.click()
+        upload_button.click()
 
-        # Upload the image
-        image_element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.NAME, 'file'))
+        # Upload the image file
+        file_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//input[@type="file"]'))
         )
-        image_element.send_keys(image_path)
+        file_input.send_keys(image_path)
 
         # Wait for the results to load
         WebDriverWait(driver, 20).until(
