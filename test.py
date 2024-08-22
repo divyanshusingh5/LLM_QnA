@@ -1,26 +1,37 @@
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
-import urllib.request
 
 # Set up ChromeDriver using webdriver-manager
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+service = Service(ChromeDriverManager().install())
+driver = webdriver.Chrome(service=service)
 
 # Navigate to Google Images
 driver.get("https://images.google.com")
 
-# Click on the 'Search by image' button (using the provided selector)
+# Handle the sign-in popup if it appears
+try:
+    stay_signed_out_button = WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "div[id*='signIn'] button"))
+    )
+    stay_signed_out_button.click()
+except Exception as e:
+    print("Sign-in popup did not appear or could not handle it:", e)
+
+# Click on the 'Search by image' button using the provided selector
 search_by_image_button = WebDriverWait(driver, 10).until(
     EC.element_to_be_clickable((By.CSS_SELECTOR, "#lensSearchButton"))
 )
 search_by_image_button.click()
 
-# Switch to the shadow DOM to find the file input element
+# Wait for the shadow DOM to load
+time.sleep(3)
+
+# Access shadow DOM to find the file input element
 shadow_root = driver.execute_script(
     "return document.querySelector('body > ntp-app').shadowRoot.querySelector('#realbox').shadowRoot"
 )
