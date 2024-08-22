@@ -1,83 +1,75 @@
+import sys
+import base64
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-import time
+from selenium.webdriver.chrome.options import Options
 
-# Set up ChromeDriver using webdriver-manager
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service)
+def google_reverse_search(target, image_base64):
+    google_images_url = "https://images.google.com/"
 
-# Navigate to Google Images
-driver.get("https://images.google.com")
+    # Setup Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run in headless mode if needed
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-# Handle the sign-in popup if it appears
-try:
-    stay_signed_out_button = WebDriverWait(driver, 5).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "div[id*='signIn'] button"))
-    )
-    stay_signed_out_button.click()
-except Exception as e:
-    print("Sign-in popup did not appear or could not handle it:", e)
-
-# Click on the 'Search by image' button using the provided selector
-search_by_image_button = WebDriverWait(driver, 10).until(
-    EC.element_to_be_clickable((By.CSS_SELECTOR, "#lensSearchButton"))
-)
-search_by_image_button.click()
-
-# Wait for the shadow DOM to load
-time.sleep(3)
-
-# Access shadow DOM to find the file input element
-shadow_root = driver.execute_script(
-    "return document.querySelector('body > ntp-app').shadowRoot.querySelector('#realbox').shadowRoot"
-)
-file_input = shadow_root.find_element(By.CSS_SELECTOR, 'input[type="file"]')
-
-# Path to the image you want to upload
-image_path = 'D:/Prompt-Design/myimage.png'
-
-# Upload the image
-file_input.send_keys(image_path)
-
-# Wait for the image to be processed and results to be displayed
-time.sleep(10)  # Adjust as needed based on image processing time
-
-# Scroll to load more images if necessary
-SCROLL_PAUSE_TIME = 2
-last_height = driver.execute_script("return document.body.scrollHeight")
-
-while True:
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(SCROLL_PAUSE_TIME)
-    new_height = driver.execute_script("return document.body.scrollHeight")
-    if new_height == last_height:
-        break
-    last_height = new_height
-
-# Find image elements
-images = driver.find_elements(By.CSS_SELECTOR, "a.W4P4ne")
-count = 1
-links = []
-
-for image in images:
+    # Setup ChromeDriver
+    service = Service(executable_path="/path/to/chromedriver")  # Update the path to your ChromeDriver
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
     try:
-        image.click()
-        time.sleep(2)
-        imgUrl = driver.find_element(By.XPATH, '//img[contains(@class, "n3VNCb")]').get_attribute("src")
-        links.append(imgUrl)
-        if len(links) >= 5:
-            break
+        driver.get(google_images_url)
+        
+        # Click on the "Search by image" button
+        camera_icon = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="sbtc"]/div/div[2]/div[2]/a'))
+        )
+        camera_icon.click()
+        
+        # Click on "Upload an image" tab
+        upload_tab = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="qbug"]/div/a'))
+        )
+        upload_tab.click()
+        
+        # Upload the image
+        upload_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="qbug"]/div/div[2]/input'))
+        )
+        image_path = "/path/to/image.png"  # Path to a local image file if base64 is not used
+        with open(image_path, "wb") as file:
+            file.write(base64.b64decode(image_base64))
+        upload_input.send_keys(image_path)
+        
+        # Wait for the results to appear
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'rso'))
+        )
+        
+        # Check if the target is present in the search results
+        results = driver.page_source
+        if target in results:
+            print(f"{target} found in search results.")
+            return True
+        else:
+            print(f"{target} not found in search results.")
+            return False
+
     except Exception as e:
-        print("Error retrieving image URL:", e)
-        continue
+        print(f"Error: {e}")
+        return False
+    finally:
+        time.sleep(2)
+        driver.quit()
 
-# Print the top 5 image URLs
-for i, link in enumerate(links):
-    print(f"Image {i + 1}: {link}")
-
-# Close the browser
-driver.quit()
+if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        target = sys.argv[1]
+        image_base64 = sys.argv[2]
+        google_reverse_search(target, image_base64)
+    else:
+        print("Usage: python script.py <target> <base64_image>")
