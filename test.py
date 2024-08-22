@@ -10,20 +10,32 @@ service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
 
 try:
-    driver.get('https://www.google.com.br')
+    driver.get('https://www.example.com')  # Replace with your website URL
     driver.maximize_window()
 
-    # Wait for potential iFrame and switch to it if needed
-    WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.CSS_SELECTOR, "iframe[name='callout']")))
+    # Close or bypass the login prompt
+    try:
+        # Wait for the login prompt to be present and then close it
+        login_prompt_close_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[text()='Close']"))  # Update selector as needed
+        )
+        login_prompt_close_button.click()
+        print("Login prompt closed.")
+    except Exception as e:
+        print(f"No login prompt found or error occurred: {e}")
 
-    # Wait for the "Not Now" button to be clickable and click it
-    not_now_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Agora não']"))
-    )
-    not_now_button.click()
+    # Optionally, handle the "Log Out" option if needed
+    try:
+        # Wait for the "Log Out" button to be clickable and then click it
+        log_out_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[text()='Log Out']"))  # Update selector as needed
+        )
+        log_out_button.click()
+        print("Logged out successfully.")
+    except Exception as e:
+        print(f"No log out button found or error occurred: {e}")
 
-except Exception as e:
-    print(f"An error occurred: {e}")
+    # Continue with other interactions on the website
 
 finally:
     driver.quit()
