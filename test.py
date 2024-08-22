@@ -5,14 +5,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import time
 import os
+import time
 
 def setup_driver():
     # Create Chrome options
     chrome_options = Options()
     chrome_options.add_argument("--start-maximized")  # Example option
-    
+
     # Set up ChromeDriver with options
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()), 
@@ -23,9 +23,10 @@ def setup_driver():
 def handle_popup(driver):
     try:
         # Wait for the "Stay signed out" button to be clickable and click it
-        WebDriverWait(driver, 10).until(
+        stay_signed_out_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@aria-label="Stay signed out"]'))
-        ).click()
+        )
+        stay_signed_out_button.click()
         print("Clicked on 'Stay signed out' button")
     except Exception as e:
         print(f"No popup appeared or error occurred: {e}")
@@ -33,7 +34,7 @@ def handle_popup(driver):
 def upload_image_and_search(driver, image_path):
     # Navigate to Google Images
     driver.get("https://www.google.com/imghp")
-    
+
     # Handle potential "Stay signed out" popup
     handle_popup(driver)
     
@@ -42,20 +43,20 @@ def upload_image_and_search(driver, image_path):
         EC.element_to_be_clickable((By.CSS_SELECTOR, "a.Q4LuWd"))
     )
     camera_icon.click()
-    
+
     # Wait for the "Upload an image" tab and click it
     upload_tab = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, '//*[@id="qbug"]'))
     )
     upload_tab.click()
-    
+
     # Locate the file input element and upload the image
     file_input = driver.find_element(By.CSS_SELECTOR, "input[type='file']")
     file_input.send_keys(image_path)
-    
+
     # Wait for results to load
     time.sleep(5)  # Adjust if necessary
-    
+
     # Extract image URLs
     image_urls = set()
     while len(image_urls) < 10:  # Ensure we fetch only up to 10 images
@@ -74,7 +75,7 @@ def upload_image_and_search(driver, image_path):
                     image_urls.add(src)
             except Exception as e:
                 print(f"Error occurred: {e}")
-        
+
         # Scroll down to load more images if needed
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)  # Adjust if necessary
