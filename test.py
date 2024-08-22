@@ -2,11 +2,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from Screenshot import Screenshot  # Ensure you have the Screenshot library installed
+from PIL import ImageGrab  # To capture the screenshot
+import pyautogui
+import time
 
 def setup_driver():
     chrome_options = Options()
@@ -14,34 +15,32 @@ def setup_driver():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     return driver
 
-def capture_screenshot(driver, image_path):
-    ob = Screenshot.Screenshot()
-    img_url = ob.full_screenshot(driver, save_path=image_path, image_name='screenshot.png', is_load_at_runtime=True, load_wait_time=3)
-    return img_url
+def capture_screenshot(image_path):
+    # Capture a screenshot of the entire screen
+    screenshot = ImageGrab.grab()  # Use PIL to capture the screenshot
+    screenshot.save(image_path)
 
 def paste_image(driver, image_path):
     try:
-        # Navigate to Google Lens or similar service
+        # Navigate to Google Lens
         driver.get('https://lens.google.com')
 
-        # Wait for the upload area to be clickable
+        # Capture the screenshot
+        capture_screenshot(image_path)
+
+        # Find the upload area using XPath or another selector
         upload_area = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//input[@type="file"]'))
         )
 
-        # Capture the screenshot
-        capture_screenshot(driver, image_path)
+        # Click the upload area to focus it (make sure it's visible and clickable)
+        upload_area.click()
 
-        # Simulate pasting the screenshot into the upload area
-        # Since pasting is complex and not directly supported, you might need to rely on the file upload approach.
+        # Wait a bit to ensure the area is ready to receive input
+        time.sleep(2)
 
-        # Use ActionChains to move to the upload area and then paste (if supported)
-        actions = ActionChains(driver)
-        actions.move_to_element(upload_area).click().perform()
-
-        # Set the file path into the file input element
-        file_input = driver.find_element(By.XPATH, '//input[@type="file"]')
-        file_input.send_keys(image_path + 'screenshot.png')
+        # Simulate pasting the screenshot using pyautogui
+        pyautogui.hotkey('ctrl', 'v')
 
         # Wait for the results to load
         WebDriverWait(driver, 20).until(
@@ -50,9 +49,7 @@ def paste_image(driver, image_path):
 
         # Extract similar image links
         links = []
-        similar_images = WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.XPATH, '//a[contains(@href, "imgres")]'))
-        )
+        similar_images = driver.find_elements(By.XPATH, '//a[contains(@href, "imgres")]')
         for img in similar_images[:10]:
             link = img.get_attribute('href')
             if link:
@@ -67,7 +64,7 @@ def paste_image(driver, image_path):
 def main():
     driver = setup_driver()
     try:
-        image_path = 'D:/Prompt-Design/'  # Path where the screenshot will be saved
+        image_path = 'screenshot.png'  # Path where the screenshot will be saved
         similar_image_links = paste_image(driver, image_path)
         if similar_image_links:
             print("Top 10 similar image links:")
