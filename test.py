@@ -22,16 +22,19 @@ def setup_driver():
 
 def handle_popup(driver):
     try:
-        # Check if the popup exists
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, '//*[@aria-label="Stay signed out"]'))
-        )
+        # Switch to the iframe where the popup might be present
+        driver.switch_to.frame("iFrmLinks")
+        
         # Wait for the "Stay signed out" button to be clickable and click it
         stay_signed_out_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@aria-label="Stay signed out"]'))
         )
         stay_signed_out_button.click()
         print("Clicked on 'Stay signed out' button")
+        
+        # Switch back to the default content after handling the popup
+        driver.switch_to.default_content()
+        
     except Exception as e:
         print(f"No popup appeared or error occurred: {e}")
 
