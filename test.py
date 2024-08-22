@@ -5,111 +5,84 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import os
-import time
 
 def setup_driver():
-    # Create Chrome options
     chrome_options = Options()
-    chrome_options.add_argument("--start-maximized")  # Example option
-
-    # Set up ChromeDriver with options
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), 
-        options=chrome_options
-    )
+    chrome_options.add_argument("--start-maximized")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     return driver
 
-def handle_popup(driver):
+def handle_sign_in_popup(driver):
     try:
-        # Switch to the iframe where the popup might be present
-        driver.switch_to.frame("iFrmLinks")
-        
-        # Wait for the "Stay signed out" button to be clickable and click it
+        # Switch to the iframe that contains the pop-up
+        WebDriverWait(driver, 10).until(
+            EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//iframe[@name="signin_frame"]'))
+        )
+
+        # Click "Stay signed out" or dismiss the popup
         stay_signed_out_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@aria-label="Stay signed out"]'))
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="stay_signed_out_button_xpath"]'))
         )
         stay_signed_out_button.click()
-        print("Clicked on 'Stay signed out' button")
-        
-        # Switch back to the default content after handling the popup
+
+        # Switch back to the main content after handling the popup
         driver.switch_to.default_content()
+        print("Handled sign-in pop-up.")
         
     except Exception as e:
-        print(f"No popup appeared or error occurred: {e}")
+        print(f"Failed to handle the sign-in popup: {e}")
 
-def upload_image_and_search(driver, image_path):
-    # Navigate to Google Images
-    driver.get("https://www.google.com/imghp")
+def upload_image_and_find_similar(driver, image_path):
+    try:
+        # Navigate to Google Lens or a similar service
+        driver.get('https://lens.google.com')
 
-    # Handle potential "Stay signed out" popup
-    handle_popup(driver)
-    
-    # Click the camera icon to start image search
-    camera_icon = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "a.Q4LuWd"))
-    )
-    camera_icon.click()
+        # Handle the sign-in popup if it appears
+        handle_sign_in_popup(driver)
 
-    # Wait for the "Upload an image" tab to be visible and click it
-    upload_tab = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, '//a[text()="Upload an image"]'))
-    )
-    upload_tab.click()
+        # If there's another iframe for uploading, switch to it
+        switch_to_iframe(driver, 'iframe_id_or_name')  # Replace 'iframe_id_or_name' with the actual iframe ID or name
 
-    # Locate the file input element and upload the image
-    file_input = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']"))
-    )
-    file_input.send_keys(image_path)
-
-    # Wait for results to load
-    time.sleep(5)  # Adjust if necessary
-
-    # Extract image URLs
-    image_urls = set()
-    while len(image_urls) < 10:  # Ensure we fetch only up to 10 images
-        thumbnails = WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "img.rg_i"))
+        # Wait for the search button and click it
+        search_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="lensSearchButton"]'))
         )
-        for thumbnail in thumbnails:
-            if len(image_urls) >= 10:
-                break
-            try:
-                thumbnail.click()
-                time.sleep(1)  # Adjust if necessary
-                full_image = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "img.n3VNCb"))
-                )
-                src = full_image.get_attribute('src')
-                if src and 'http' in src:
-                    image_urls.add(src)
-            except Exception as e:
-                print(f"Error occurred while extracting image URL: {e}")
+        search_button.click()
 
-        # Scroll down to load more images if needed
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)  # Adjust if necessary
-    
-    return image_urls
+        # Upload the image
+        image_element = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.NAME, 'file'))
+        )
+        image_element.send_keys(image_path)
+
+        # Wait for the results to load
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, '//div[contains(@class, "results-container")]'))
+        )
+
+        # Extract the top 10 similar image links
+        links = []
+        similar_images = driver.find_elements(By.XPATH, '//a[contains(@href, "imgres")]')  # Adjust this if needed
+        for img in similar_images[:10]:
+            links.append(img.get_attribute('href'))
+
+        return links
+
+    except Exception as e:
+        print(f"Exception occurred: {e}")
+        return []
 
 def main():
     driver = setup_driver()
     try:
-        # Path to the image you want to upload
-        image_path = r'D:\Prompt-Design\myimage.png'
-        
-        # Ensure the image path is correct
-        if not os.path.isfile(image_path):
-            print("The specified image path does not exist.")
-            return
-        
-        # Perform image upload and search
-        image_urls = upload_image_and_search(driver, image_path)
-        
-        # Print fetched image URLs (up to 10)
-        for url in image_urls:
-            print(url)
+        image_path = 'D:/Prompt-Design/myimage.png'  # Replace with the actual path to your image
+        similar_image_links = upload_image_and_find_similar(driver, image_path)
+        if similar_image_links:
+            print("Top 10 similar image links:")
+            for link in similar_image_links:
+                print(link)
+        else:
+            print("No similar images found or an error occurred.")
     finally:
         driver.quit()
 
